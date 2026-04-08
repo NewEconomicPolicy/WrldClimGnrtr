@@ -579,7 +579,7 @@ class Form(QWidget):
         """
         exit cleanly
         """
-        exit_clicked(self, wthr_only_flag = True)
+        exit_clicked(self)
 
 def main():
     """
