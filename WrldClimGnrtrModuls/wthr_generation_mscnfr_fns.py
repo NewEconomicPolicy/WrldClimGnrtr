@@ -12,7 +12,7 @@ __prog__ = 'wthr_generation_mscnfr_fns'
 __version__ = '0.0.1'
 __author__ = 's03mm5'
 
-from os import mkdir, remove
+from os import mkdir, remove, makedirs
 from os.path import isdir, join, exists, isfile
 from pathlib import Path
 from numpy.ma import is_masked
@@ -79,6 +79,9 @@ def generate_mscnfr_hwsd_wthr(form):
     grid_size = climgen.hist_wthr_set_defn['resol_lon']
     miscan_fobjs, writers = _open_csv_file_sets(METRIC_LIST + ['meteogrid'], output_dir, lats[0], lats[-1],
                                                                     lons[0], lons[-1], grid_size, strt_yr, end_yr)
+    if writers is None:
+        print(WARNING_STR + 'No writers')
+        return
 
     # for each location, where there is data, build set of data
     # =========================================================
@@ -128,8 +131,12 @@ def generate_mscnfr_wrld_wthr(form):
     max_cells = int(form.w_max_cells.text())
     output_dir = join(form.w_out_dir.text(), 'wrld')   # typically  G:\MscnfrOutpts\WorldClim'
     if not isdir(output_dir) or output_dir == '':
-        print(WARNING_STR + 'Output directory to which weather files will be written must exist')
-        return
+        try:
+            makedirs(output_dir)
+        except OSError as err:
+            mess = ERROR_STR + str(err) + '\t\ncould not create directory ' + output_dir
+            print(mess + ' please reselect output folder')
+            return
 
     # start and end year, typically 1981 and, 2080
     # ============================================
@@ -234,8 +241,12 @@ def _open_csv_file_sets(var_names, out_folder, lat_min, lat_max, lon_min, lon_ma
     write each variable to a separate file
     """
     if not isdir(out_folder):
-        print(out_folder + ' does not exist - please reselect output folder')
-        return None, None
+        try:
+            makedirs(out_folder)
+        except OSError as err:
+            mess = ERROR_STR + str(err) + '\t\ncould not create directory ' + out_folder
+            print(mess + ' please reselect output folder')
+            return None, None
 
     header_recs = []
     header_recs.append('GridSize    ' + str(round(grid_size,5)))
