@@ -1,2 +1,2 @@
 # SoilsRGreatGlEcSp
-Weather file generator for RothC, Miscanfor and Ecosse
+Weather file generator for RothC, Miscanfor and Ecosse using WorldClim data
