@@ -307,8 +307,13 @@ class Form(QWidget):
         grid.addWidget(w_yr_from, irow, 3)
         self.w_yr_from = w_yr_from
 
-        # dormant widgets
-        # ===============
+        # inactive widgets
+        # ================
+        self.w_study = QLineEdit()
+        self. w_lbl13 = QLabel('')
+        self.w_lbl16 = QLabel('')
+        self.w_crop_rota = QCheckBox("Use crop rotation file")
+        self.w_manure = QRadioButton("Manure")
         self.w_combo00b = QComboBox()
         self.w_equimode = QLineEdit()
         self.w_all_regions = QCheckBox('All studies')
