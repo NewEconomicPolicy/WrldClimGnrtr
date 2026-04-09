@@ -92,7 +92,7 @@ def read_hwsd_wthr_dsets(climgen, hist_wthr_dsets, fut_wthr_dsets, bbox, strt_yr
 
     return slices_concat, ntime_steps, lats, lons
 
-def read_all_wthr_dsets(climgen, hist_wthr_dsets, fut_wthr_dsets, strt_yr, end_yr):
+def read_wrld_wthr_dsets(climgen, hist_wthr_dsets, fut_wthr_dsets, strt_yr, end_yr):
     """
     get precipitation and temperature data for all times
     """

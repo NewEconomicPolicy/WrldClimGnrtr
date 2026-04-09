@@ -14,19 +14,15 @@ __author__ = 's03mm5'
 
 from os import mkdir, remove, makedirs
 from os.path import isdir, join, exists, isfile
-from pathlib import Path
 from numpy.ma import is_masked
-from netCDF4 import Dataset
 from csv import writer, reader
 from time import time
 from PyQt5.QtWidgets import QApplication
 
-from wthr_generation_misc_fns import read_all_wthr_dsets, read_hwsd_wthr_dsets
+from wthr_generation_misc_fns import read_wrld_wthr_dsets, read_hwsd_wthr_dsets
 from getClimGenNC import ClimGenNC
-from getClimGenFns import (fetch_WrldClim_data, fetch_WrldClim_NC_data, associate_climate,
-                           open_wthr_NC_sets, get_wthr_nc_coords, join_hist_fut_to_sim_wthr)
-from thornthwaite import thornthwaite
-from glbl_ecsse_low_level_fns import update_wthr_progress, check_cell_within_csv
+from getClimGenFns import close_wthr_NC_sets, open_wthr_NC_sets
+from glbl_ecsse_low_level_fns import update_wthr_rothc_progress, check_cell_within_csv
 
 ERROR_STR = '*** Error *** '
 WARNING_STR = '*** Warning *** '
@@ -40,7 +36,7 @@ METRIC_DESCRIPS = {'precip': 'precip = total precipitation (mm)',
                     'tas': 'tave = near-surface average temperature (degrees Celsius)'}
 NMETRICS = len(METRIC_LIST)
 
-def generate_mscnfr_hwsd_wthr(form):
+def generate_mscnfr_hwsd_wthr(form, output_dir):
     """
     create 10 arc minute data
     """
@@ -52,7 +48,6 @@ def generate_mscnfr_hwsd_wthr(form):
 
     form.w_abandon.setCheckState(0)
     max_cells = int(form.w_max_cells.text())
-    output_dir = join(form.w_out_dir.text(), 'hwsd')  # typically  G:\MscnfrOutpts\WorldClim'
     strt_yr = int(form.w_sim_strt_yr.text())  # start and end year, typically 1981, 2080
     end_yr = int(form.w_sim_end_yr.text())
 
@@ -85,19 +80,21 @@ def generate_mscnfr_hwsd_wthr(form):
 
     # for each location, where there is data, build set of data
     # =========================================================
-    n_nodata, n_not_inside, n_with_data, ntotal = 4*[0]
+    n_not_inside,n_nodata,  n_with_data, ntotal = 4*[0]
     last_time = time()
 
     # create 10 arc minute world data
     # ===============================
     for lat_indx, lat in enumerate(lats):
+        if n_with_data >= max_cells:
+            break
 
         for lon_indx, lon in enumerate(lons):
             if not check_cell_within_csv(form.hwsd_mu_globals.data_frame, lat, lon):
                 n_not_inside += 1
                 continue
 
-            pettmp, data_flag = _fetch_wthr_data(wthr_slices, lat_indx, lon_indx)
+            pettmp, data_flag = _fetch_wthr_data(wthr_slices, lat_indx, lon_indx, ntime_steps)
 
             # write data
             # ==========
@@ -110,33 +107,28 @@ def generate_mscnfr_hwsd_wthr(form):
             else:
                 n_nodata += 1
 
-            if n_with_data >= max_cells:
-                last_time = update_wthr_progress(last_time, n_with_data, n_nodata, ntotal, ntotal, ntotal, region)
-                break
+            # noutbnds, nnodata, ncmpltd, nskipped, w_abandon
+            last_time, cancel_flag = update_wthr_rothc_progress(last_time,
+                                                n_not_inside, n_nodata, n_with_data, ntotal, form.w_abandon)
 
     # close netCDF and csv files
     # ==========================
     for var_name in METRIC_LIST + ['meteogrid']:
         miscan_fobjs[var_name].close()
 
-    print('\nAll done - not inside: {}\n'.format(n_not_inside))
+    close_wthr_NC_sets( hist_wthr_dsets, fut_wthr_dsets)
+
+    mess = '\nGenerated {} cells - not inside country: {}'.format(n_with_data, n_not_inside)
+    print(mess + '\tcells without data: {}\n'.format(format(n_nodata, ',')))
 
     return
 
-def generate_mscnfr_wrld_wthr(form):
+def generate_mscnfr_wrld_wthr(form, output_dir):
     """
     C
     """
     form.w_abandon.setCheckState(0)
     max_cells = int(form.w_max_cells.text())
-    output_dir = join(form.w_out_dir.text(), 'wrld')   # typically  G:\MscnfrOutpts\WorldClim'
-    if not isdir(output_dir) or output_dir == '':
-        try:
-            makedirs(output_dir)
-        except OSError as err:
-            mess = ERROR_STR + str(err) + '\t\ncould not create directory ' + output_dir
-            print(mess + ' please reselect output folder')
-            return
 
     # start and end year, typically 1981 and, 2080
     # ============================================
@@ -163,7 +155,7 @@ def generate_mscnfr_wrld_wthr(form):
     nlons = len(climgen.fut_wthr_set_defn['longitudes'])
 
     hist_wthr_dsets, fut_wthr_dsets = open_wthr_NC_sets(climgen)
-    wthr_slices, ntime_steps = read_all_wthr_dsets(climgen, hist_wthr_dsets, fut_wthr_dsets, sim_strt_yr, sim_end_yr)
+    wthr_slices, ntime_steps = read_wrld_wthr_dsets(climgen, hist_wthr_dsets, fut_wthr_dsets, sim_strt_yr, sim_end_yr)
 
     mess = 'Will generate {} csv files consisting of metrics'.format(len(METRIC_LIST))
     print(mess + ' and a meteogrid file consisting of grid coordinates')
@@ -177,7 +169,7 @@ def generate_mscnfr_wrld_wthr(form):
                                                                         lon_min, lon_max, grid_size, strt_yr, end_yr)
     # for each location, where there is data, build set of data
     # =========================================================
-    n_nodata, n_with_data, ntotal = 3*[0]
+    n_outbnds, n_nodata, n_with_data, ntotal = 4*[0]
     last_time = time()
 
     # create 0.5 degree world data
@@ -185,10 +177,13 @@ def generate_mscnfr_wrld_wthr(form):
     for lat_indx in range(1, nlats, 3):
         lat = climgen.fut_wthr_set_defn['latitudes'][lat_indx]
 
+        if n_with_data >= max_cells:
+            break
+
         for lon_indx in range(1, nlons, 3):
             lon = climgen.fut_wthr_set_defn['longitudes'][lon_indx]
 
-            pettmp, data_flag = _fetch_wthr_data(wthr_slices, lat_indx, lon_indx)
+            pettmp, data_flag = _fetch_wthr_data(wthr_slices, lat_indx, lon_indx, ntime_steps)
 
             # write data
             # ==========
@@ -201,8 +196,10 @@ def generate_mscnfr_wrld_wthr(form):
             else:
                 n_nodata += 1
 
+            # noutbnds, nnodata, ncmpltd, nskipped, w_abandon
+            last_time, cancel_flag = update_wthr_rothc_progress(last_time,
+                                                n_outbnds, n_nodata, n_with_data, ntotal, form.w_abandon)
             if n_with_data >= max_cells:
-                last_time = update_wthr_progress(last_time, n_with_data, n_nodata, ntotal, ntotal, ntotal, region)
                 break
 
     # close netCDF and csv files
@@ -210,11 +207,13 @@ def generate_mscnfr_wrld_wthr(form):
     for var_name in METRIC_LIST + ['meteogrid']:
         miscan_fobjs[var_name].close()
 
-    print('\nAll done...\n')
+    close_wthr_NC_sets( hist_wthr_dsets, fut_wthr_dsets)
+
+    print('\nGenerated {} cells - cells without data: {}\n'.format(n_with_data, format(n_nodata, ',')))
 
     return
 
-def _fetch_wthr_data(wthr_slices, lat_indx, lon_indx):
+def _fetch_wthr_data(wthr_slices, lat_indx, lon_indx, ntime_steps):
 
     """
     check each metric and if data is not present then return
@@ -226,7 +225,7 @@ def _fetch_wthr_data(wthr_slices, lat_indx, lon_indx):
         # check first 10 values
         # =====================
         data_flag = True
-        for timindx in range(10):
+        for timindx in range(ntime_steps):
             if is_masked(pettmp[timindx]):
                 data_flag = False
                 break
@@ -235,19 +234,12 @@ def _fetch_wthr_data(wthr_slices, lat_indx, lon_indx):
 
     return pettmp_ret, data_flag
 
-def _open_csv_file_sets(var_names, out_folder, lat_min, lat_max, lon_min, lon_max, grid_size,
+def _open_csv_file_sets(var_names, output_dir, lat_min, lat_max, lon_min, lon_max, grid_size,
                                                  start_year, stop_year, out_suffx = '.txt', remove_flag = True):
     """
     write each variable to a separate file
+    assumes output directory already exists
     """
-    if not isdir(out_folder):
-        try:
-            makedirs(out_folder)
-        except OSError as err:
-            mess = ERROR_STR + str(err) + '\t\ncould not create directory ' + out_folder
-            print(mess + ' please reselect output folder')
-            return None, None
-
     header_recs = []
     header_recs.append('GridSize    ' + str(round(grid_size,5)))
     header_recs.append('LongMin     ' + str(lon_min))
@@ -266,7 +258,7 @@ def _open_csv_file_sets(var_names, out_folder, lat_min, lat_max, lon_min, lon_ma
     # ==================================
     miscan_fobjs = {}; writers = {}
     for var_name in var_names:
-        file_name = join(out_folder, var_name + out_suffx)
+        file_name = join(output_dir, var_name + out_suffx)
         if remove_flag:
             if exists(file_name):
                 remove(file_name)

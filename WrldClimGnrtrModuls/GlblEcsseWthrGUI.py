@@ -12,7 +12,7 @@ __author__ = 's03mm5'
 
 import sys
 from os.path import join, isdir, normpath
-from os import listdir
+from os import listdir, makedirs
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
@@ -31,6 +31,7 @@ from wthr_generation_mscnfr_fns import generate_mscnfr_wrld_wthr, generate_mscnf
 from wthr_generation_misc_fns import clean_empty_dirs
 
 WARNING_STR = '*** Warning *** '
+ERROR_STR = '*** Error *** '
 
 WDGT_SIZE_80 = 80
 WDGT_SIZE_100 = 100
@@ -478,10 +479,23 @@ class Form(QWidget):
         """
         C
         """
+        output_dirs = {}
+        for mode in list(['wrld', 'hwsd']):
+            output_dir = join(self.w_out_dir.text(), mode)  # typically  G:\MscnfrOutpts\WorldClim'
+            if not isdir(output_dir) or output_dir == '':
+                try:
+                    makedirs(output_dir)
+                except OSError as err:
+                    mess = ERROR_STR + str(err) + '\t\ncould not create directory ' + output_dir
+                    print(mess + ' please reselect output folder')
+                    return
+
+            output_dirs[mode] = output_dir
+
         if self.w_use_hwsd_fn.isChecked():
-            generate_mscnfr_hwsd_wthr(self)
+            generate_mscnfr_hwsd_wthr(self, output_dirs['hwsd'])
         else:
-            generate_mscnfr_wrld_wthr(self)
+            generate_mscnfr_wrld_wthr(self, output_dirs['wrld'])
 
         return
 
@@ -533,12 +547,6 @@ class Form(QWidget):
         self.w_combo10.clear()
         self.w_combo10.addItems(scnrs)
 
-    def saveClicked(self):
-        """
-        write last GUI selections
-        """
-        write_wthr_config_file(self)
-
     def resolutionChanged(self):
         """
 
@@ -580,11 +588,31 @@ class Form(QWidget):
         """
         exit_clicked(self, write_config_flag = False)
 
+    def saveClicked(self):
+        """
+        write last GUI selections
+        """
+        write_wthr_config_file(self)
+
     def exitClicked(self):
         """
-        exit cleanly
+        write last GUI selections and exit cleanly
         """
-        exit_clicked(self)
+        write_wthr_config_file(self)
+
+        # close various files
+        if hasattr(self, 'fobjs'):
+            if not self.fobjs is None:
+                for key in self.fobjs:
+                    self.fobjs[key].close()
+
+        # close logging
+        try:
+            self.lgr.handlers[0].close()
+        except AttributeError:
+            pass
+
+        self.close()
 
 def main():
     """

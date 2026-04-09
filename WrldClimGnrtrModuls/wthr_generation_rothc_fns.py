@@ -23,7 +23,7 @@ from PyQt5.QtWidgets import QApplication
 
 from wthr_generation_misc_fns import fetch_WrldClim_sngl_data, fetch_WrldClim_area_data, read_all_wthr_smpl_dsets
 from getClimGenNC import ClimGenNC
-from getClimGenFns import (fetch_WrldClim_data, fetch_WrldClim_NC_data, associate_climate,
+from getClimGenFns import (fetch_WrldClim_data, fetch_WrldClim_NC_data, associate_climate, close_wthr_NC_sets,
                            open_wthr_NC_sets, get_wthr_nc_coords, join_hist_fut_to_sim_wthr)
 from thornthwaite import thornthwaite
 from glbl_ecsse_low_level_fns import update_wthr_rothc_progress, update_soc_rothc_progress
@@ -159,6 +159,8 @@ def generate_rothc_wthr(form):
     mess = '\nCompleted weather generation  - number of sets completed: {}'.format(ncmpltd)
     mess += '\tskipped: {}\tno data: {}'.format(nskipped, nnodata)
     print(mess + '\tout of bounds: {}\n'.format(noutbnds))
+
+    close_wthr_NC_sets(hist_wthr_dsets, fut_wthr_dsets)
 
     return
 
