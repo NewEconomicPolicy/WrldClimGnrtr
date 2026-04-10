@@ -25,7 +25,6 @@ from commonCmpntsGUI import exit_clicked, commonSection, grid_coarseness, calcul
 from hwsd_mu_globals_fns import HWSD_mu_globals_csv
 from shape_funcs import format_bbox, calculate_area
 
-from wthr_generation_fns import generate_all_weather
 from wthr_generation_rothc_fns import generate_rothc_wthr
 from wthr_generation_mscnfr_fns import generate_mscnfr_wrld_wthr, generate_mscnfr_hwsd_wthr
 from wthr_generation_misc_fns import clean_empty_dirs
@@ -75,17 +74,9 @@ class Form(QWidget):
         grid = QGridLayout()
         grid.setSpacing(10)	# set spacing between widgets
 
-        # Ecosse weather
         # ==============
         irow = 0
         icol = 0
-        w_wthr_only = QPushButton('ECOSSE weather')
-        helpText = 'Generate ECOSSE weather'
-        w_wthr_only.setToolTip(helpText)
-        w_wthr_only.setEnabled(True)
-        grid.addWidget(w_wthr_only, irow, icol)
-        w_wthr_only.clicked.connect(self.gnrtWthrClicked)
-        self.w_wthr_only = w_wthr_only
 
         # ======= spacer ========
         irow += 1
@@ -515,6 +506,7 @@ class Form(QWidget):
         sims_dir = self.setup['sims_dir']
 
         fs_dirs = listdir(sims_dir)
+        n_dirs = 0
         for fn in fs_dirs:
             this_dir = join(sims_dir, fn)
             if isdir(this_dir):
@@ -522,14 +514,10 @@ class Form(QWidget):
                 if len(res) == 2:
                     if res[1] in wthr_scenarios:
                         print('\tentities in ' + fn + ' ' + str(len(listdir(this_dir))))
+                        n_dirs += 1
 
-        return
-
-    def gnrtWthrClicked(self):
-        """
-        generate weather for all regions, scenarios and GCMs
-        """
-        generate_all_weather(self)
+        if n_dirs == 0:
+            print (WARNING_STR + 'No scenarios in ' + sims_dir)
 
         return
 
