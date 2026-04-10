@@ -281,7 +281,7 @@ class Form(QWidget):
         grid.addWidget(lbl05, irow, 0)
 
         w_max_cells = QLineEdit()
-        w_max_cells.setText('')
+        w_max_cells.setText(helpText)
         w_max_cells.setFixedWidth(WDGT_SIZE_80)
         grid.addWidget(w_max_cells, irow, 1)
         self.w_max_cells = w_max_cells
@@ -316,6 +316,7 @@ class Form(QWidget):
         self.w_use_peren = QCheckBox('Use perennial crops')
         self.w_daily  = QRadioButton("Daily")
         self.w_mnthly = QRadioButton("Monthly")
+        self.w_auto_run_ec = QCheckBox('Auto run Ecosse')
 
         # weather resource and simulation period
         # ======================================
@@ -326,11 +327,7 @@ class Form(QWidget):
         # actions
         # =======
         irow += 3
-        icol = 0
-        w_auto_run_ec  = QCheckBox('Auto run Ecosse')
-        self.w_auto_run_ec  = w_auto_run_ec
-        icol += 5
-
+        icol = 5
         w_stop_all = QPushButton('Stop process')
         helpText = 'Stop creation of simulation files or run Ecosse processing'
         w_stop_all.setToolTip(helpText)
